@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 
 import net.canarymod.api.entity.living.humanoid.Player;
 
-import org.redisson.*;
+import org.redisson.Redisson;
 import org.redisson.core.RMap;
 import org.redisson.core.RSet;
 
@@ -47,15 +47,13 @@ public class GrouperListener implements PluginListener, CommandListener {
                 @Override
                 public void accept(Player player) {
                     if (player.getName().equals(invitee)) {
-                    	RSet<Player> pending_set = red.getSet("group.pending");
+                        RSet<Player> pending_set = red.getSet("group.pending");
                     	
-                      // Have they already been invited to a group?
-                      if (pending_set.contains(player)) {
-                    	  sender.message("That player is already considering a group.");
-                          return;
-                      }
-                        // if (group_pending.containsKey(invitee)) {
-                        // }
+                        // Have they already been invited to a group?
+                        if (pending_set.contains(player)) {
+                            sender.message("That player is already considering a group.");
+                            return;
+                        }
 
                         // Are they already in a group?
                         // if (grouped.contains(player)) {
