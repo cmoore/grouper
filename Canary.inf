@@ -1,0 +1,4 @@
+main-class = io.ivy.grouper.Grouper
+name = Grouper
+author = cmoore
+version = 1
