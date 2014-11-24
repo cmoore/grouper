@@ -5,8 +5,6 @@ package io.ivy.grouper;
 import net.canarymod.Canary;
 import net.canarymod.plugin.Plugin;
 import net.canarymod.commandsys.CommandDependencyException;
-import net.canarymod.commandsys.CommandList;
-import net.canarymod.commandsys.CommandListener;
 
 public class Grouper extends Plugin {
 
