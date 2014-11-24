@@ -4,24 +4,21 @@ package io.ivy.grouper;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 import net.canarymod.Canary;
 import net.canarymod.plugin.PluginListener;
 import net.canarymod.commandsys.Command;
 import net.canarymod.commandsys.CommandListener;
 import net.canarymod.chat.MessageReceiver;
-
-import java.util.List;
-import java.util.function.Consumer;
-
 import net.canarymod.api.entity.living.humanoid.Player;
 
-import com.whalin.MemCached.*;
-
+import redis.clients.jedis.*;
 
 public class GrouperListener implements PluginListener, CommandListener {
-    private Map group_list = new HashMap();
 
+    private Map group_list = new HashMap();
     
     // invitee -> inviter
     private Map group_pending = new HashMap();
@@ -44,16 +41,16 @@ public class GrouperListener implements PluginListener, CommandListener {
                 @Override
                 public void accept(Player player) {
                     if (player.getName().equals(invitee)) {
-                    	MemCachedClient mcc = new MemCachedClient("192.168.0.210");
-                    	mcc.add("test", "honka");
-                    	
-                    	Canary.log.info(mcc.get("test"));
-                    	
+
+                        Jedis j = new Jedis("192.168.0.210");
+                        
                         // Have they already been invited to a group?
-                        //if (pending_set.contains(player)) {
-                        //    sender.message("That player is already considering a group.");
-                        //    return;
-                        //}
+
+                        if (j.get(invitee + ".group.pending") != null) {
+                            sender.message("That player is already considering a group.");
+                            return;
+                        }
+
                         // Are they already in a group?
                         // if (grouped.contains(player)) {
                         //     sender.message("That player is already in a group.");

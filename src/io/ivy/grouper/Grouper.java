@@ -10,12 +10,14 @@ public class Grouper extends Plugin {
 
     @Override
     public boolean enable() {
-        Canary.hooks().registerListener(new GrouperListener(), this);
         try {
             Canary.commands().registerCommands(new GrouperListener(), this, false);
         } catch(CommandDependencyException e) {
             Canary.log.info(e);
         }
+
+        Canary.hooks().registerListener(new GrouperListener(), this);
+
         return true;
     }
 
