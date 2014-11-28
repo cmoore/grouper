@@ -1,6 +1,6 @@
 #!/bin/bash
 
 while inotifywait -q -r -e modify --exclude '#$' ./src; do
-    mvn install
+    mvn -q install && echo "Ok"
 done
 

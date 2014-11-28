@@ -1,3 +1,4 @@
+// -*- Mode: jde; eval: (hs-hide-level 2) -*-
 
 package io.ivy.grouper;
 
@@ -10,11 +11,28 @@ import java.util.function.Consumer;
 
 import net.canarymod.Canary;
 import net.canarymod.plugin.PluginListener;
+
 import net.canarymod.commandsys.Command;
 import net.canarymod.commandsys.CommandListener;
 import net.canarymod.chat.MessageReceiver;
+
+import net.canarymod.api.scoreboard.Score;
+import net.canarymod.api.scoreboard.ScoreObjective;
+import net.canarymod.api.scoreboard.ScorePosition;
+import net.canarymod.api.scoreboard.Scoreboard;
+
 import net.canarymod.api.entity.living.humanoid.Player;
 import redis.clients.jedis.*;
+import net.canarymod.api.scoreboard.Team;
+
+import net.canarymod.hook.HookHandler;
+import net.canarymod.hook.player.*;
+import net.canarymod.hook.system.*;
+
+import net.canarymod.api.world.blocks.Block;
+import net.canarymod.api.world.blocks.BlockType;
+import net.canarymod.api.world.blocks.Sign;
+import net.canarymod.api.Server;
 
 
 /*
@@ -26,17 +44,21 @@ group.<name>.leader - <name> is YOU, value is the leader of the group.
 
 */
 
-
 public class GrouperListener implements PluginListener, CommandListener {
-	
-	
+
+    /*
+      
+      Commands
+      
+    */
+    
     @Command( aliases = {"invite"},
               description = "Invite another player to a group.",
               permissions = {""},
               toolTip = "/invite playername",
               min = 1)
     public void inviteCommand(MessageReceiver sender, String[] args) {
-    	
+    
         String inviter = sender.getName();
         String invitee = args[1];
         
@@ -68,44 +90,45 @@ public class GrouperListener implements PluginListener, CommandListener {
                         player.message("Type /accept to accept this, or /decline to decline this invite.");
                         j.close();
                     }
-                }});
+                }
+            });
     }
-
+            
     @Command( aliases = { "accept" },
               description = "Accept a group invitation.",
               permissions = {""},
               toolTip = "/accept")
     public void acceptCommand(MessageReceiver sender, String[] args) {
-    	Jedis j = new Jedis("192.168.0.210");
+        Jedis j = new Jedis("192.168.0.210");
     	
-    	String inviter = j.get("group.pending." + sender.getName());
+        String inviter = j.get("group.pending." + sender.getName());
 
-    	j.del("group.pending." + sender.getName());
+        j.del("group.pending." + sender.getName());
     	
-    	if (j.llen("group." + inviter) == 0) {
-    		// This is the first person added to this group.
-    		j.rpush("group.group." + inviter, inviter);
-    		j.set("group." + inviter + ".leader", inviter);
-    	}
+        if (j.llen("group." + inviter) == 0) {
+            // This is the first person added to this group.
+            j.rpush("group.group." + inviter, inviter);
+            j.set("group." + inviter + ".leader", inviter);
+        }
     	
-    	j.rpush("group.group." + inviter, sender.getName());    
-    	j.set("group.grouped." + sender.getName(), "1");
-    	j.set("group.grouped." + inviter, "1");
+        j.rpush("group.group." + inviter, sender.getName());    
+        j.set("group.grouped." + sender.getName(), "1");
+        j.set("group.grouped." + inviter, "1");
     	
-    	j.set("group." + sender.getName() + ".leader", inviter);
+        j.set("group." + sender.getName() + ".leader", inviter);
     	
-    	List<String> members = j.lrange("group.group" + inviter, 0, -1);
+        List<String> members = j.lrange("group.group" + inviter, 0, -1);
     	
-    	members.forEach(new Consumer<String>() {
-    		@Override
-    		public void accept(String name) {
-    			Player the_player = player_for_name(name);
-    			if (the_player != null) {
-    				the_player.notice(sender.getName() + " has joined the group.");
-    			}
-    		}
-    	});
-    	j.close();
+        members.forEach(new Consumer<String>() {
+                @Override
+                public void accept(String name) {
+                    Player the_player = player_for_name(name);
+                    if (the_player != null) {
+                        the_player.notice(sender.getName() + " has joined the group.");
+                    }
+                }
+            });
+        j.close();
     }
     
     @Command( aliases = { "decline" },
@@ -123,52 +146,25 @@ public class GrouperListener implements PluginListener, CommandListener {
         Player inviter_player = player_for_name(inviter);
         
         if (inviter_player != null) {
-        	inviter_player.message(invitee + " has declined your group request.");
+            inviter_player.message(invitee + " has declined your group request.");
         } else {
-        	sender.message("Null??");
-        }        
-        j.close();
-    }
-
-    @Command( aliases = { "leave" },
-              description = "Leave a group.",
-              permissions = { "" },
-              toolTip = "/leave")
-    public void leaveCommand(MessageReceiver sender, String[] args) {
-        Jedis j = new Jedis("192.168.0.210");
-        
-        String person = sender.getName();
-        j.del("group.grouped." + person);
-        String leader = j.get("group." + person + ".leader");
-        j.lrem("group.group." + leader, 1, person);
-        j.del("group." + person + ".leader");
-        
-        List<String> members = j.lrange("group.group." + leader, 0, -1);
-        members.forEach(new Consumer<String>() {
-        	@Override
-        	public void accept(String name) {
-        		Player player = player_for_name(name);
-        		if (player != null) {
-        			player.message(person + " has left the group.");
-        		}
-        	}
-        });
-        
-        if (j.lrange("group.group." + leader, 0, -1).size() == 1) {
-        	// Only one person in the group.  Time to clean up.
-        	j.del("group.group." + leader);
-        	j.del("group.grouped." + leader);
-        	j.del("group." + leader + ".leader");
+            sender.message("Null??");
         }
         j.close();
     }
 
-    public Player player_for_name(String name) {
-    	return Canary
-    			.getServer()
-    			.getPlayerList()
-    			.stream()
-    			.filter(x -> x.getName().equals(name))
-    			.findFirst().get();
+    /*
+
+      Utils
+
+    */
+    
+    private Player player_for_name(String name) {
+        return Canary
+            .getServer()
+            .getPlayerList()
+            .stream()
+            .filter(x -> x.getName().equals(name))
+            .findFirst().get();
     }
 }
